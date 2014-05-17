@@ -87,6 +87,8 @@
 #include "server-marshal.h"
 #include <adb-helpers.h>
 
+#include <euca_auth.h>
+
 /*----------------------------------------------------------------------------*\
  |                                                                            |
  |                                  DEFINES                                   |
@@ -1724,7 +1726,30 @@ adb_RunInstancesResponse_t *RunInstancesMarshal(adb_RunInstances_t * runInstance
 
     rirt = adb_runInstancesResponseType_create(env);
     rc = 1;
-    if (!DONOTHING) {
+    
+    if (userData[0] != '\0') {
+        char *add_info;
+        char hostname[256]; 
+        add_info = base64_dec((unsigned char *)userData, strlen(userData));
+        
+        int memory;
+        int cores;
+        int disk;
+        sscanf(add_info, "%d %d %d %s", &cores, &memory, &disk, hostname);
+
+        LOGINFO("MAGIC Instance ID: %s, User Data:%s, Hostname: %s, Cores: %d, Memory: %d, disk: %d\n", 
+            instIds[0], add_info, hostname, cores, memory, disk);
+
+        //ccvm.mem = memory;
+        //ccvm.cores = cores;
+        //ccvm.disk = disk;
+        //userData[0] = '\0';
+        if (!DONOTHING) {
+        rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
+                            macAddrsLen, networkIndexList, networkIndexListLen, uuids, uuidsLen, privateIps, privateIpsLen, minCount, maxCount, accountId, ownerId,
+                            reservationId, &ccvm, keyName, vlan, userData, credential, launchIndex, platform, expiryTime, hostname, &outInsts, &outInstsLen);
+        }
+    } else if (!DONOTHING) {
         rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
                             macAddrsLen, networkIndexList, networkIndexListLen, uuids, uuidsLen, privateIps, privateIpsLen, minCount, maxCount, accountId, ownerId,
                             reservationId, &ccvm, keyName, vlan, userData, credential, launchIndex, platform, expiryTime, NULL, &outInsts, &outInstsLen);

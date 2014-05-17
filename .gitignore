@@ -127,3 +127,5 @@ tools/imaging/build/
 tools/imaging/setup.cfg
 tools/imaging/setup.cfg.template
 
+sftp-config.json
+
