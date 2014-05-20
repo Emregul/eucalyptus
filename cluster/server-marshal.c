@@ -162,94 +162,7 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
                                 'w', 'x', 'y', 'z', '0', '1', '2', '3',
                                 '4', '5', '6', '7', '8', '9', '+', '/'};
-static char *decoding_table = NULL;
-static int mod_table[] = {0, 2, 1};
 
-void build_decoding_table() {
-
-    decoding_table = malloc(256);
-
-    for (int i = 0; i < 64; i++)
-        decoding_table[(unsigned char) encoding_table[i]] = i;
-}
-
-
-void base64_cleanup() {
-    free(decoding_table);
-}
-
-
-char *base64_encode(const unsigned char *data,
-                    size_t input_length,
-                    size_t *output_length) {
-
-    *output_length = 4 * ((input_length + 2) / 3);
-
-    char *encoded_data = malloc(*output_length);
-    if (encoded_data == NULL) return NULL;
-
-    for (int i = 0, j = 0; i < input_length;) {
-
-        uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
-        uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
-        uint32_t octet_c = i < input_length ? (unsigned char)data[i++] : 0;
-
-        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
-
-        encoded_data[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
-    }
-
-    for (int i = 0; i < mod_table[input_length % 3]; i++)
-        encoded_data[*output_length - 1 - i] = '=';
-
-    return encoded_data;
-}
-
-
-unsigned char *base64_decode(const char *data,
-                             size_t input_length,
-                             size_t *output_length) {
-
-    if (decoding_table == NULL) build_decoding_table();
-
-    if (input_length % 4 != 0) return NULL;
-
-    *output_length = input_length / 4 * 3;
-    if (data[input_length - 1] == '=') (*output_length)--;
-    if (data[input_length - 2] == '=') (*output_length)--;
-
-    unsigned char *decoded_data = malloc(*output_length);
-    if (decoded_data == NULL) return NULL;
-
-    for (int i = 0, j = 0; i < input_length;) {
-
-        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-
-        uint32_t triple = (sextet_a << 3 * 6)
-        + (sextet_b << 2 * 6)
-        + (sextet_c << 1 * 6)
-        + (sextet_d << 0 * 6);
-
-        if (j < *output_length) decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
-        if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
-        if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
-    }
-
-    return decoded_data;
-}
-
-
-
-
-
-
-//!
 //! initialize the AXIS2 services
 //!
 void adb_InitService(void)
@@ -1820,95 +1733,100 @@ adb_RunInstancesResponse_t *RunInstancesMarshal(adb_RunInstances_t * runInstance
     }
 
     rirt = adb_runInstancesResponseType_create(env);
-    rc = 1;
+    rc = 1;   
 
+    if (strlen(userData) != 0) {
 
-    
+        char decoding_table[256];
+        char data[16384];
 
-    char decoding_table[256];
-    char data[16384];
+        size_t input_length = strlen(userData);
+        size_t out_length;
+        size_t *output_length = &out_length;
 
-    size_t input_length = strlen(userData);
-    size_t out_length;
-    size_t *output_length = &out_length;
+        strncpy(data, userData, 16384);
+        data[16383] = '\0';
 
-    strncpy(data, userData, 16384);
+        for (int i = 0; i < 64; i++)
+            decoding_table[(unsigned char) encoding_table[i]] = i;
 
+        //if (input_length % 4 != 0) return NULL;
 
-    data[16383] = '\0';
+        *output_length = input_length / 4 * 3;
+        if (data[input_length - 1] == '=') (*output_length)--;
+        if (data[input_length - 2] == '=') (*output_length)--;
 
+        char *decoded_data = malloc(*output_length);
+        if (decoded_data == NULL) return NULL;
 
-    for (int i = 0; i < 64; i++)
-        decoding_table[(unsigned char) encoding_table[i]] = i;
+        for (int i = 0, j = 0; i < input_length;) {
 
-    if (input_length % 4 != 0) return NULL;
+            uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+            uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+            uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+            uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
 
-    *output_length = input_length / 4 * 3;
-    if (data[input_length - 1] == '=') (*output_length)--;
-    if (data[input_length - 2] == '=') (*output_length)--;
+            uint32_t triple = (sextet_a << 3 * 6)
+            + (sextet_b << 2 * 6)
+            + (sextet_c << 1 * 6)
+            + (sextet_d << 0 * 6);
 
-    char *decoded_data = malloc(*output_length);
-    if (decoded_data == NULL) return NULL;
+            if (j < *output_length) decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
+            if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
+            if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
+        }
 
-    for (int i = 0, j = 0; i < input_length;) {
+        decoded_data[out_length] = '\0';
 
-        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(int) data[i++]];
-
-        uint32_t triple = (sextet_a << 3 * 6)
-        + (sextet_b << 2 * 6)
-        + (sextet_c << 1 * 6)
-        + (sextet_d << 0 * 6);
-
-        if (j < *output_length) decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
-        if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
-        if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
-    }
-
-    LOGINFO("MAGIC User Data:%s Size: %zu Pointer: %p\n", userData, strlen(userData), (void *) userData);
-    LOGINFO("MAGIC deocded_data Data:%s Size: %zu Pointer: %p\n", decoded_data, strlen(decoded_data), (void *) decoded_data);
-
-    if (decoded_data[0] != '\0') {
+        LOGINFO("MAGIC User Data:%s Size: %zu Pointer: %p\n", userData, strlen(userData), (void *) userData);
+        LOGINFO("MAGIC decoded_data Data:%s Size: %zu Pointer: %p\n", decoded_data, strlen(decoded_data), (void *) decoded_data);
         
-        //char hostname[256]; 
- 
-        
+        char hostname[256];
 
-        //my_add_info = base64_dec((unsigned char *)my_buffer, strlen(my_buffer));
-        //base64_dec((unsigned char *)my_buffer, strlen(my_buffer));
-        
-        //LOGINFO("MAGIC DECODED:%s %zu %p\n", my_add_info, strlen(my_add_info), (void *) my_add_info);
-        /*
-        int memory;
-        int cores;
-        int disk;*/
-        //sscanf(decoded_data, "%d %d %d %s", &cores, &memory, &disk, hostname);
+        int cores = 0;
+        int memory = 0;
+        int disk = 0;
 
-        //LOGINFO("MAGIC Instance ID: %s, User Data:%s, Hostname: %s, Cores: %d, Memory: %d, disk: %d\n", 
-         //   instIds[0], decoded_data, hostname, cores, memory, disk);
-        
-        //ccvm.mem = memory;
-        //ccvm.cores = cores;
-        //ccvm.disk = disk;
-        char *hostname = "10.44.1.3";
-        ccvm.mem = 256;
-        ccvm.cores = 4;
-        ccvm.disk = 10;
-        //userData[0] = '\0';*/
+        int token_count = 0;
+        char *token;
+        token = strtok(decoded_data, " ");
+
+        while (token != NULL)
+        {
+            switch (token_count) {
+                case 0:
+                    ccvm.cores = atoi(token); 
+                    break;
+                case 1: 
+                    ccvm.mem = atoi(token);
+                    break;
+                case 2: 
+                    ccvm.disk = atoi(token);
+                    break;
+                case 3: 
+                    strncpy(hostname, token, 256);
+                    break;
+            }
+            token = strtok (NULL, " ");
+            token_count++;
+        }
+
+        LOGINFO("MAGIC Instance ID: %s, Token count: %d, User Data:%s, Hostname: %s, Cores: %d, Memory: %d, disk: %d\n", 
+           instIds[0], token_count, decoded_data, hostname, cores, memory, disk);
+
+        free(decoded_data);
+
         if (!DONOTHING) {
         rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
                             macAddrsLen, networkIndexList, networkIndexListLen, uuids, uuidsLen, privateIps, privateIpsLen, minCount, maxCount, accountId, ownerId,
                             reservationId, &ccvm, keyName, vlan, userData, credential, launchIndex, platform, expiryTime, hostname, &outInsts, &outInstsLen);
         }
+
     } else if (!DONOTHING) {
         rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
                             macAddrsLen, networkIndexList, networkIndexListLen, uuids, uuidsLen, privateIps, privateIpsLen, minCount, maxCount, accountId, ownerId,
                             reservationId, &ccvm, keyName, vlan, userData, credential, launchIndex, platform, expiryTime, NULL, &outInsts, &outInstsLen);
     }
-
-    free(decoded_data);
 
     if (rc) {
         LOGERROR("doRunInstances() failed %d\n", rc);
