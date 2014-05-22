@@ -1761,10 +1761,10 @@ adb_RunInstancesResponse_t *RunInstancesMarshal(adb_RunInstances_t * runInstance
 
         for (int i = 0, j = 0; i < input_length;) {
 
-            uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-            uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-            uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-            uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+            uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
+            uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
+            uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
+            uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
 
             uint32_t triple = (sextet_a << 3 * 6)
             + (sextet_b << 2 * 6)
@@ -1783,16 +1783,13 @@ adb_RunInstancesResponse_t *RunInstancesMarshal(adb_RunInstances_t * runInstance
         
         char hostname[256];
 
-        int cores = 0;
-        int memory = 0;
-        int disk = 0;
-
         int token_count = 0;
         char *token;
         token = strtok(decoded_data, " ");
 
         while (token != NULL)
         {
+            LOGINFO("MAGIC %s\n", token);
             switch (token_count) {
                 case 0:
                     ccvm.cores = atoi(token); 
@@ -1811,15 +1808,22 @@ adb_RunInstancesResponse_t *RunInstancesMarshal(adb_RunInstances_t * runInstance
             token_count++;
         }
 
-        LOGINFO("MAGIC Instance ID: %s, Token count: %d, User Data:%s, Hostname: %s, Cores: %d, Memory: %d, disk: %d\n", 
-           instIds[0], token_count, decoded_data, hostname, cores, memory, disk);
-
         free(decoded_data);
 
         if (!DONOTHING) {
-        rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
+            if (token_count == 4) {
+                LOGINFO("MAGIC USER SCHED Instance ID: %s, Token count: %d, Hostname: %s, Cores: %d, Memory: %d, disk: %d\n", 
+                        instIds[0], token_count, hostname, ccvm.cores, ccvm.mem, ccvm.disk);
+                rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
                             macAddrsLen, networkIndexList, networkIndexListLen, uuids, uuidsLen, privateIps, privateIpsLen, minCount, maxCount, accountId, ownerId,
                             reservationId, &ccvm, keyName, vlan, userData, credential, launchIndex, platform, expiryTime, hostname, &outInsts, &outInstsLen);
+            } else {
+                LOGINFO("MAGIC EUCA SCHED Instance ID: %s, Token count: %d, Cores: %d, Memory: %d, disk: %d\n", 
+                        instIds[0], token_count, ccvm.cores, ccvm.mem, ccvm.disk);
+                rc = doRunInstances(&ccMeta, emiId, kernelId, ramdiskId, emiURL, kernelURL, ramdiskURL, instIds, instIdsLen, netNames, netNamesLen, macAddrs,
+                            macAddrsLen, networkIndexList, networkIndexListLen, uuids, uuidsLen, privateIps, privateIpsLen, minCount, maxCount, accountId, ownerId,
+                            reservationId, &ccvm, keyName, vlan, userData, credential, launchIndex, platform, expiryTime, NULL, &outInsts, &outInstsLen);
+            }        
         }
 
     } else if (!DONOTHING) {
