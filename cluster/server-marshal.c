@@ -1789,7 +1789,6 @@ adb_RunInstancesResponse_t *RunInstancesMarshal(adb_RunInstances_t * runInstance
 
         while (token != NULL)
         {
-            LOGINFO("MAGIC %s\n", token);
             switch (token_count) {
                 case 0:
                     ccvm.cores = atoi(token); 
